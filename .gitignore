@@ -1,0 +1,12 @@
+/docs/*
+!/docs/thunder_papers.md
+/data/*
+!/data/SYNTH_616992.wav
+
+TODO.md
+.github/
+.claude/
+CLAUDE.md
+
+build/
+__pycache__/
