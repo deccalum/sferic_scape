@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string>
-
 #include "core/types.h"
 
 namespace sferic {
@@ -12,15 +10,9 @@ class AudioBuffer {
   AudioBuffer(size_t num_channels, size_t num_frames, double sample_rate);
 
   // Access
-  size_t num_channels() const {
-    return num_channels_;
-  }
-  size_t num_frames() const {
-    return num_frames_;
-  }
-  double sample_rate() const {
-    return sample_rate_;
-  }
+  size_t num_channels() const { return num_channels_; }
+  size_t num_frames() const { return num_frames_; }
+  double sample_rate() const { return sample_rate_; }
   double duration() const;
 
   // Per-channel access
@@ -36,9 +28,7 @@ class AudioBuffer {
   double rms() const;
 
   // Utilities
-  bool empty() const {
-    return data_.empty();
-  }
+  bool empty() const { return data_.empty(); }
   void resize(size_t num_channels, size_t num_frames, double sample_rate);
   void clear();
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 namespace sferic {
 
 // Speed of sound in air at 20°C, 1 atm (m/s).

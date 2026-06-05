@@ -3,10 +3,11 @@
 /data/*
 !/data/SYNTH_616992.wav
 
+.env
 TODO.md
 .github/
 .claude/
 CLAUDE.md
 
-build/
+build
 __pycache__/
