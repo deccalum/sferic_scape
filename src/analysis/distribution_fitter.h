@@ -46,6 +46,7 @@ struct DistributionFit {
   std::array<double, 4> params{};  // semantics per DistributionKind above
   std::vector<double> weights;     // non-empty only for Discrete / Piecewise kinds
   double ks_p_value = 0.0;         // KS goodness-of-fit p-value — higher = better fit
+  double ks_statistic = 1.0;       // KS D — max deviation of fitted CDF from empirical; lower = better
   size_t sample_count = 0;         // observations used; 0 = fit was skipped
 };
 
@@ -53,6 +54,13 @@ struct DistributionFit {
 // Requires at least 4 samples (IQR quantile estimation). Returns a default
 // DistributionFit with sample_count == 0 for shorter inputs.
 DistributionFit fit_distribution(std::span<const double> samples);
+
+// Fit quality as a percentage in [0, 100] — 100·(1−D), comparing the fitted distribution
+// (new) against the empirical sample CDF (old). 0 when no fit was made (sample_count == 0).
+double fit_similarity(const DistributionFit& fit);
+
+// Human-readable family name for a DistributionKind.
+const char* distribution_name(DistributionKind kind);
 
 }  // namespace analysis
 }  // namespace sferic

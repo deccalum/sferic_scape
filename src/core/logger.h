@@ -50,3 +50,6 @@ struct ScopeTimer {
 
 #define SFERIC_PROGRESS(cur, tot, audio_ms, bytes) \
   ::sferic::log::progress(__func__, (cur), (tot), (audio_ms), (bytes))
+
+#define SFERIC_PROGRESS_EVERY(cur, tot, audio_ms, bytes, every) \
+  ::sferic::log::progress(__func__, (cur), (tot), (audio_ms), (bytes), (every))

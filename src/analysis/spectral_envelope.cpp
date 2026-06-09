@@ -63,8 +63,7 @@ SpectralAnalyzer::SpectralAnalyzer(size_t fft_size, size_t hop_size, size_t smoo
 
   impl_->fft_in = fftw_alloc_real(fft_size_);
   impl_->fft_out = fftw_alloc_complex(impl_->num_bins);
-  impl_->plan = fftw_plan_dft_r2c_1d(static_cast<int>(fft_size_), impl_->fft_in, impl_->fft_out,
-                                     FFTW_ESTIMATE);
+  impl_->plan = fftw_plan_dft_r2c_1d(static_cast<int>(fft_size_), impl_->fft_in, impl_->fft_out, FFTW_ESTIMATE);
 
   std::ostringstream ss;
   ss << "fft=" << fft_size_
@@ -103,12 +102,11 @@ SpectralEnvelope SpectralAnalyzer::analyze(const AudioBuffer& residual) const {
   // TODO capture StereoProfile here before to_mono() discards channel data — see buffer.cpp
   const AudioBuffer mono = (residual.num_channels() == 1) ? residual : residual.to_mono();
 
-  const double sample_rate = mono.sample_rate();
-  const size_t effective_hop =
-      (hop_size_ == 0) ? static_cast<size_t>(std::round(sample_rate / 1000.0)) : hop_size_;
-  const double duration_s = static_cast<double>(mono.num_frames()) / sample_rate;
-  const double ms_per_frame = static_cast<double>(effective_hop) / sample_rate * 1000.0;
-  const size_t expected_ms = static_cast<size_t>(duration_s * 1000.0 / ms_per_frame);
+  const double sample_rate   = mono.sample_rate();
+  const size_t effective_hop = (hop_size_ == 0) ? static_cast<size_t>(std::round(sample_rate / 1000.0)) : hop_size_;
+  const double duration_s    = static_cast<double>(mono.num_frames()) / sample_rate;
+  const double ms_per_frame  = static_cast<double>(effective_hop) / sample_rate * 1000.0;
+  const size_t expected_ms   = static_cast<size_t>(duration_s * 1000.0 / ms_per_frame);
 
   {
     std::ostringstream ss;

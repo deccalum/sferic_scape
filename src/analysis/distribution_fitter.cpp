@@ -118,6 +118,8 @@ DistributionFit fit_distribution(std::span<const double> samples) {
 
   // Kolmogorov Q — maps max empirical/theoretical CDF deviation D to a p-value.
   // Series converges rapidly; 10 terms is accurate for sqrt(n)*D > 0.5.
+  // ks_D captures the D of the most recent call — read into the candidate's ks_statistic.
+  double ks_D = 1.0;
   const auto ks_p = [&]<typename F>(F cdf) -> double {
     double D = 0.0;
     for (size_t i = 0; i < n; ++i) {
@@ -126,6 +128,7 @@ DistributionFit fit_distribution(std::span<const double> samples) {
       const double Fc = cdf(sorted[i]);
       D = std::max(D, std::max(std::abs(Fn_hi - Fc), std::abs(Fn_lo - Fc)));
     }
+    ks_D = D;
     const double t = std::sqrt(dn) * D;
     if (t <= 0.0) return 1.0;
     double q = 0.0;
@@ -139,6 +142,7 @@ DistributionFit fit_distribution(std::span<const double> samples) {
   best.ks_p_value = -1.0;  // sentinel — no candidate accepted yet
 
   const auto try_dist = [&](DistributionFit d) {
+    d.ks_statistic = ks_D;  // D from the ks_p call that just scored this candidate
     scored.push_back({d.kind, d.ks_p_value, false});
     if (d.ks_p_value > best.ks_p_value) best = std::move(d);
   };
@@ -432,10 +436,11 @@ DistributionFit fit_distribution(std::span<const double> samples) {
 
     SFERIC_LOG(
         Info,
-        std::format("scores n={} mean={:.4g} stddev={:.4g}\n"
+        std::format("scores n={} mean={:.4g} stddev={:.4g}  best={} similarity={:.1f}%\n"
                     "  sym: Normal={}  StudentT={}  Cauchy={}  ExtremeValue={}\n"
                     "  pos: Lognormal={}  Gamma={}  Weibull={}  Exponential={}  ChiSquared={}\n"
                     "  np:  PiecewiseLinear={}{}", n, mean, stddev,
+                    distribution_name(best.kind), fit_similarity(best),
                     fmt(DistributionKind::Normal),     fmt(DistributionKind::StudentT),
                     fmt(DistributionKind::Cauchy),     fmt(DistributionKind::ExtremeValue),
                     fmt(DistributionKind::Lognormal),  fmt(DistributionKind::Gamma),
@@ -444,6 +449,37 @@ DistributionFit fit_distribution(std::span<const double> samples) {
                     pl_extra));
   }
   return best;
+}
+
+double fit_similarity(const DistributionFit& fit) {
+  if (fit.sample_count == 0) return 0.0;
+  return 100.0 * (1.0 - std::clamp(fit.ks_statistic, 0.0, 1.0));
+}
+
+const char* distribution_name(DistributionKind kind) {
+  switch (kind) {
+    case DistributionKind::UniformReal:       return "UniformReal";
+    case DistributionKind::UniformInt:        return "UniformInt";
+    case DistributionKind::Bernoulli:         return "Bernoulli";
+    case DistributionKind::Binomial:          return "Binomial";
+    case DistributionKind::NegativeBinomial:  return "NegativeBinomial";
+    case DistributionKind::Geometric:         return "Geometric";
+    case DistributionKind::Poisson:           return "Poisson";
+    case DistributionKind::Exponential:       return "Exponential";
+    case DistributionKind::Gamma:             return "Gamma";
+    case DistributionKind::Weibull:           return "Weibull";
+    case DistributionKind::ExtremeValue:      return "ExtremeValue";
+    case DistributionKind::Normal:            return "Normal";
+    case DistributionKind::Lognormal:         return "Lognormal";
+    case DistributionKind::ChiSquared:        return "ChiSquared";
+    case DistributionKind::Cauchy:            return "Cauchy";
+    case DistributionKind::FisherF:           return "FisherF";
+    case DistributionKind::StudentT:          return "StudentT";
+    case DistributionKind::Discrete:          return "Discrete";
+    case DistributionKind::PiecewiseConstant: return "PiecewiseConstant";
+    case DistributionKind::PiecewiseLinear:   return "PiecewiseLinear";
+  }
+  return "Unknown";
 }
 
 }  // namespace analysis

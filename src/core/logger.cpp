@@ -123,10 +123,13 @@ void progress(std::string_view func, size_t current, size_t total, double audio_
     if (current % 100 == 0) g_file.flush();
   }
 
-  // Write to stdout at the requested interval or on the final entry
-  if (current % stdout_interval == 0 || current + 1 == total) {
-    std::printf("[%s] %.*s: %s\n", timestamp_now().c_str(), static_cast<int>(func.size()),
-                func.data(), line.c_str());
+  // Write to stdout at the requested interval or on the final entry. The line is
+  // rewritten in place (\r + clear-to-EOL) so a loop occupies one scrolling line;
+  // the final entry terminates with a newline so subsequent logs start clean.
+  if (current % stdout_interval == 0 || current + 1 >= total) {
+    const bool last = current + 1 >= total;
+    std::printf("\r\033[K[%s] %.*s: %s%s", timestamp_now().c_str(),
+                static_cast<int>(func.size()), func.data(), line.c_str(), last ? "\n" : "");
     std::fflush(stdout);
   }
 }

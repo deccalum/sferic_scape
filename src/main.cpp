@@ -1,65 +1,22 @@
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <string>
-
-#include "analysis/spectral_envelope.h"
-#include "core/buffer.h"
+#include "cli/browser.h"
+#include "cli/commands.h"
 #include "core/logger.h"
-#include "io/audio_file.h"
-#include "io/parametric_json.h"
-#include "synthesis/noise_generator.h"
-#include "synthesis/parametric_synth.h"
+#include "io/env.h"
 
 #define DEVELOPMENT 1
 
-namespace fs = std::filesystem;
-using namespace sferic;
-
-static void load_dotenv(const fs::path& path = ".env") {
-  std::ifstream f(path);
-  std::string line;
-  while (std::getline(f, line)) {
-    if (line.empty() || line[0] == '#') continue;
-    const auto eq = line.find('=');
-    if (eq == std::string::npos) continue;
-    const std::string key = line.substr(0, eq);
-    const std::string val = line.substr(eq + 1);
-    ::setenv(key.c_str(), val.c_str(), 0);
-  }
-}
-
 #if DEVELOPMENT
+
 int main() {
-  load_dotenv();
-  log::init();
+  sferic::io::env::load();
+  sferic::log::init(sferic::io::env::log_dir().string() + "/");
 
-  const fs::path input = std::getenv("SFERIC_INPUT");
-  const fs::path out_dir = std::getenv("SFERIC_OUT_DIR");
+  sferic::cli::AnalyzeOptions opts;
+  opts.emit_unhealed = true;
+  opts.write_json = sferic::io::env::flag("SFERIC_WRITE_JSON");
 
-  AudioBuffer audio = io::load(input.string());
-  analysis::SpectralEnvelope spectral = analysis::SpectralAnalyzer(2048, 0, 15).analyze(audio);
-  analysis::ParametricModel model = analysis::ParametricExtractor().extract(spectral);
-
-  const fs::path group = out_dir / input.stem();
-  fs::create_directories(group);
-  io::save_parametric_json(model, (group / "model.full.json").string(), io::TrajectoryMode::Full);
-  io::save_parametric_json(model, (group / "model.compact.json").string(),
-                           io::TrajectoryMode::Compact);
-
-  {
-    synthesis::NoiseGenerator gen;
-    gen.load_model(spectral);
-    const size_t n = static_cast<size_t>(spectral.duration() * spectral.sample_rate);
-    AudioBuffer spectral_out(1, n, spectral.sample_rate);
-    gen.render(spectral_out.channel(0), n, 0.0);
-    io::save(spectral_out, (group / "spectral.wav").string());
-  }
-
-  synthesis::ParametricSynth synth;
-  synth.load_model(model);
-  AudioBuffer out = synth.synthesize();
-  io::save(out, (group / "synth.wav").string());
+  for (const auto& p : sferic::cli::browse(sferic::io::env::wav_root(), opts))
+    sferic::cli::analyze(p, opts);
 
   return 0;
 }

@@ -5,6 +5,7 @@
 #include <complex>
 
 #include "core/constants.h"
+#include "core/logger.h"
 
 namespace sferic {
 namespace synthesis {
@@ -115,6 +116,8 @@ void NoiseGenerator::synthesize_grain(double center_time, std::vector<float>& ou
 size_t NoiseGenerator::render(float* output, size_t num_samples, double start_time) {
   size_t samples_written = 0;
   const double dt = 1.0 / model_.sample_rate;
+  const size_t total_grains = (num_samples + hop_size_ - 1) / hop_size_;
+  size_t grain_idx = 0;
 
   while (samples_written < num_samples) {
     if (synthesis_pos_ == 0) {
@@ -124,6 +127,9 @@ size_t NoiseGenerator::render(float* output, size_t num_samples, double start_ti
 
       for (size_t i = 0; i < fft_size_; ++i)
         overlap_buffer_[i] += grain[i] * static_cast<float>(ola_norm_);
+
+      SFERIC_PROGRESS(grain_idx, total_grains, current_time * 1000.0, 0);
+      ++grain_idx;
     }
 
     const size_t samples_available = hop_size_ - synthesis_pos_;

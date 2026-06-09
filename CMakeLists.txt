@@ -18,6 +18,7 @@ pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
 find_package(spdlog REQUIRED)
 find_package(GTest REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 add_library(sferic_core STATIC
   src/core/buffer.cpp
@@ -25,9 +26,15 @@ add_library(sferic_core STATIC
   src/io/audio_file.cpp
   src/io/parametric_json.cpp
   src/io/audio_sink.cpp
+  src/io/data_domain.cpp
+  src/io/env.cpp
+  src/cli/commands.cpp
+  src/cli/browser.cpp
   src/analysis/spectral_envelope.cpp
   src/analysis/distribution_fitter.cpp
   src/analysis/parametric_model.cpp
+  src/analysis/analysis_processor.cpp
+  src/analysis/similarity.cpp
   src/synthesis/noise_generator.cpp
   src/synthesis/parametric_synth.cpp
 )
@@ -37,6 +44,7 @@ target_link_libraries(sferic_core PUBLIC
   PkgConfig::SNDFILE
   spdlog::spdlog
   nlohmann_json::nlohmann_json
+  yaml-cpp::yaml-cpp
 )
 target_compile_definitions(sferic_core PUBLIC
   SFERIC_HAS_SNDFILE

@@ -20,7 +20,7 @@ struct EnvelopeFrame {
 // Produced by SpectralAnalyzer; consumed by ParametricExtractor and NoiseGenerator.
 struct SpectralEnvelope {
   double sample_rate;
-  std::vector<EnvelopeFrame> ms;  // named 'ms' — each entry ≈ 1ms of audio
+  std::vector<EnvelopeFrame> ms;  // each entry ≈ 1ms of audio
 
   bool empty() const { return ms.empty(); }
   size_t num_bins() const { return ms.empty() ? 0 : ms.front().envelope.size(); }

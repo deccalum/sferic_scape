@@ -753,6 +753,16 @@ std::vector<BandEnvelope> ParametricExtractor::compute_band_envelopes(
     band.envelope = compute_temporal_envelope_from_rms(band_rms, frame_times);
     band.spread_trajectory = std::move(band_spread);
     band.q_trajectory = std::move(band_q);
+
+    {
+      const DistributionFit& rd = band.envelope.residual_distribution;
+      std::ostringstream ss;
+      ss << "band fit: " << std::fixed << std::setprecision(1) << f_lo << "–" << f_hi
+         << "Hz residual " << distribution_name(rd.kind) << " similarity " << std::setprecision(1)
+         << fit_similarity(rd) << "%";
+      SFERIC_LOG(Info, ss.str());
+    }
+
     result.push_back(std::move(band));
   }
 
