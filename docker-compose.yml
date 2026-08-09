@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sferic-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sferic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sferic}
+      POSTGRES_DB: ${POSTGRES_DB:-sferic}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - sferic_pgdata:/var/lib/postgresql/data
+      - ${SFERIC_BACKUP_DIR:-./data/db_backups}:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sferic} -d ${POSTGRES_DB:-sferic}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sferic_pgdata:
+    name: sferic_pgdata

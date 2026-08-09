@@ -1,0 +1,6 @@
+numpy
+matplotlib
+psycopg[binary]>=3.1
+sqlalchemy>=2.0
+python-dotenv>=1.0
+yt-dlp
