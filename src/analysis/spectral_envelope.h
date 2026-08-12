@@ -1,27 +1,26 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <vector>
 
 #include "core/buffer.h"
 
-namespace sferic {
-namespace analysis {
+namespace sferic::analysis {
 
-// Spectral envelope snapshot at one point in time (~1ms per frame at default hop).
+// Spectral envelope snapshot at one point in time.
+// ~1ms per frame at default hop.
 struct EnvelopeFrame {
-  double time_seconds;
-  std::vector<double> envelope;  // magnitude per FFT bin, 0 Hz → Nyquist
+  double time_seconds;           // frame centre time in the source clip
+  std::vector<double> envelope;  // magnitude per FFT bin, 0 Hz -> Nyquist
   double frequency_spacing;      // Hz between adjacent bins
 };
 
 // Spectral envelope model: a time series of per-frame spectral envelopes.
-// Produced by SpectralAnalyzer; consumed by ParametricExtractor and NoiseGenerator.
 struct SpectralEnvelope {
-  double sample_rate;
+  double sample_rate;             // Hz of the analysed buffer
   std::vector<EnvelopeFrame> ms;  // each entry ≈ 1ms of audio
-
   bool empty() const { return ms.empty(); }
   size_t num_bins() const { return ms.empty() ? 0 : ms.front().envelope.size(); }
   double duration() const {
@@ -36,9 +35,9 @@ struct SpectralEnvelope {
 };
 
 // Extracts a SpectralEnvelope from an AudioBuffer via windowed STFT.
-//   fft_size       — frequency resolution (must be power of 2)
-//   hop_size       — frames between hops; 0 = auto (~1ms per frame)
-//   smoothing_bins — moving-average half-width for envelope smoothing (empirical)
+//  - fft_size:       frequency resolution          (must be power of 2)
+//  - hop_size:       frames between hops. 0 = auto (~1ms per frame)
+//  - smoothing_bins: moving-average half-width for envelope smoothing
 class SpectralAnalyzer {
  public:
   SpectralAnalyzer(size_t fft_size, size_t hop_size, size_t smoothing_bins);
@@ -47,20 +46,18 @@ class SpectralAnalyzer {
   SpectralAnalyzer& operator=(const SpectralAnalyzer&) = delete;
   SpectralAnalyzer(SpectralAnalyzer&&) noexcept;
   SpectralAnalyzer& operator=(SpectralAnalyzer&&) noexcept;
-
-  // Sample rate is taken from residual.sample_rate().
   SpectralEnvelope analyze(const AudioBuffer& residual) const;
+  size_t frame_count(const AudioBuffer& residual) const;
+  void analyze_streaming(const AudioBuffer& residual,
+                         const std::function<void(EnvelopeFrame&&)>& sink) const;
 
  private:
   size_t fft_size_;
   size_t hop_size_;
   size_t smoothing_bins_;
-
   struct Impl;
   std::unique_ptr<Impl> impl_;
-
   std::vector<double> smooth_envelope(const std::vector<double>& magnitudes) const;
 };
 
-}  // namespace analysis
-}  // namespace sferic
+}  // namespace sferic::analysis

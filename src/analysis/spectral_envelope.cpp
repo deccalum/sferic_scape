@@ -6,23 +6,23 @@
 #include <cmath>
 #include <iomanip>
 #include <sstream>
+#include <utility>
 
 #include "core/constants.h"
 #include "core/logger.h"
 
-namespace sferic {
-namespace analysis {
+namespace sferic::analysis {
 
 struct SpectralAnalyzer::Impl {
-  size_t fft_size;
-  size_t num_bins;
-  std::vector<double> window;
-  double norm_general;  // bins 1..N/2-1 — split between positive and negative frequencies
-  double norm_dc_nyq;   // DC and Nyquist — not split
+  size_t fft_size;             // FFT length (power of 2)
+  size_t num_bins;             // real bins kept: fft_size/2 + 1
+  std::vector<double> window;  // analysis window, length fft_size
+  double norm_general;         // bins 1..N/2-1 — split between positive and negative frequencies
+  double norm_dc_nyq;          // DC and Nyquist — not split
 
-  fftw_plan plan = nullptr;
-  double* fft_in = nullptr;
-  fftw_complex* fft_out = nullptr;
+  fftw_plan plan = nullptr;       // real→complex plan
+  double* fft_in = nullptr;       // windowed real input buffer
+  fftw_complex* fft_out = nullptr;  // complex spectrum output
 
   ~Impl() {
     if (plan) fftw_destroy_plan(plan);
@@ -63,7 +63,8 @@ SpectralAnalyzer::SpectralAnalyzer(size_t fft_size, size_t hop_size, size_t smoo
 
   impl_->fft_in = fftw_alloc_real(fft_size_);
   impl_->fft_out = fftw_alloc_complex(impl_->num_bins);
-  impl_->plan = fftw_plan_dft_r2c_1d(static_cast<int>(fft_size_), impl_->fft_in, impl_->fft_out, FFTW_ESTIMATE);
+  impl_->plan = fftw_plan_dft_r2c_1d(static_cast<int>(fft_size_), impl_->fft_in, impl_->fft_out,
+                                     FFTW_ESTIMATE);
 
   std::ostringstream ss;
   ss << "fft=" << fft_size_
@@ -96,17 +97,25 @@ std::vector<double> SpectralAnalyzer::smooth_envelope(const std::vector<double>&
   return smoothed;
 }
 
-SpectralEnvelope SpectralAnalyzer::analyze(const AudioBuffer& residual) const {
-  SFERIC_SCOPE("SpectralAnalyzer::analyze");
+size_t SpectralAnalyzer::frame_count(const AudioBuffer& residual) const {
+  const size_t hop = (hop_size_ == 0)
+                         ? static_cast<size_t>(std::round(residual.sample_rate() / 1000.0))
+                         : hop_size_;
+  const size_t total = residual.num_frames();
+  return total < fft_size_ ? 0 : (total - fft_size_) / hop + 1;
+}
 
-  // TODO capture StereoProfile here before to_mono() discards channel data — see buffer.cpp
+void SpectralAnalyzer::analyze_streaming(const AudioBuffer& residual,
+                                         const std::function<void(EnvelopeFrame&&)>& sink) const {
+  SFERIC_SCOPE("SpectralAnalyzer::analyze_streaming");
+
   const AudioBuffer mono = (residual.num_channels() == 1) ? residual : residual.to_mono();
-
-  const double sample_rate   = mono.sample_rate();
-  const size_t effective_hop = (hop_size_ == 0) ? static_cast<size_t>(std::round(sample_rate / 1000.0)) : hop_size_;
-  const double duration_s    = static_cast<double>(mono.num_frames()) / sample_rate;
-  const double ms_per_frame  = static_cast<double>(effective_hop) / sample_rate * 1000.0;
-  const size_t expected_ms   = static_cast<size_t>(duration_s * 1000.0 / ms_per_frame);
+  const double sample_rate = mono.sample_rate();
+  const size_t effective_hop =
+      (hop_size_ == 0) ? static_cast<size_t>(std::round(sample_rate / 1000.0)) : hop_size_;
+  const double duration_s = static_cast<double>(mono.num_frames()) / sample_rate;
+  const double ms_per_frame = static_cast<double>(effective_hop) / sample_rate * 1000.0;
+  const size_t expected_ms = static_cast<size_t>(duration_s * 1000.0 / ms_per_frame);
 
   {
     std::ostringstream ss;
@@ -120,26 +129,22 @@ SpectralEnvelope SpectralAnalyzer::analyze(const AudioBuffer& residual) const {
   }
 
   const size_t N = fft_size_;
-  const size_t total_frames = mono.num_frames();
-  const size_t num_hops = (total_frames < N) ? 0 : (total_frames - N) / effective_hop + 1;
+  const size_t num_hops = frame_count(mono);
   const double freq_spacing = sample_rate / static_cast<double>(N);
   const size_t n_bins = impl_->num_bins;
   const size_t frame_bytes = n_bins * sizeof(double);
 
   {
     std::ostringstream ss;
-    ss << "STFT: " << num_hops << " frames, " << n_bins << " bins/frame, "
-       << log::fmt_bytes(frame_bytes) << "/frame, " << log::fmt_bytes(num_hops * frame_bytes)
-       << " total";
+    ss << "STFT (streamed): " << num_hops << " frames, " << n_bins << " bins/frame, "
+       << log::fmt_bytes(frame_bytes) << "/frame — reduced per frame, not stored";
     SFERIC_LOG(Info, ss.str());
   }
 
-  SpectralEnvelope model;
-  model.sample_rate = sample_rate;
-  model.ms.reserve(num_hops);
-
   std::vector<double> windowed(N);
   std::vector<double> magnitudes;
+  EnvelopeFrame sf;  // reused across frames — O(1) storage
+  sf.frequency_spacing = freq_spacing;
 
   for (size_t h = 0; h < num_hops; ++h) {
     const size_t start = h * effective_hop;
@@ -151,20 +156,26 @@ SpectralEnvelope SpectralAnalyzer::analyze(const AudioBuffer& residual) const {
 
     impl_->execute(windowed.data(), magnitudes);
 
-    EnvelopeFrame sf;
     sf.time_seconds = center_time;
     sf.envelope = smooth_envelope(magnitudes);
-    sf.frequency_spacing = freq_spacing;
-    model.ms.push_back(std::move(sf));
+    sink(std::move(sf));
 
-    const double audio_ms = center_time * 1000.0;
-    const size_t accum_bytes = (h + 1) * frame_bytes;
-    SFERIC_PROGRESS(h, num_hops, audio_ms, accum_bytes);
+    SFERIC_PROGRESS(h + 1, num_hops, center_time * 1000.0, (h + 1) * frame_bytes);
   }
 
-  SFERIC_LOG_MEM(Info, "complete — " + std::to_string(num_hops) + " ms-frames", model.size_bytes());
+  SFERIC_LOG(Info, "streamed " + std::to_string(num_hops) + " frames");
+}
+
+SpectralEnvelope SpectralAnalyzer::analyze(const AudioBuffer& residual) const {
+  SpectralEnvelope model;
+  model.sample_rate = residual.sample_rate();
+  model.ms.reserve(frame_count(residual));
+  analyze_streaming(residual, [&](EnvelopeFrame&& frame) {
+    model.ms.push_back(std::move(frame));
+  });
+  SFERIC_LOG_MEM(Info, "collected " + std::to_string(model.ms.size()) + " ms-frames",
+                 model.size_bytes());
   return model;
 }
 
-}  // namespace analysis
-}  // namespace sferic
+}  // namespace sferic::analysis
