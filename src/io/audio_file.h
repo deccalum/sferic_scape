@@ -1,30 +1,26 @@
 #pragma once
 
+#include <cstddef>
+#include <span>
 #include <string>
+#include <vector>
 
 #include "core/buffer.h"
 
-namespace sferic {
-namespace io {
+namespace sferic::io {
 
 struct AudioFileInfo {
-  size_t num_channels;
-  size_t num_frames;
-  double sample_rate;
-  double duration;
-  std::string format;  // e.g. "WAV", "FLAC", "AIFF"
+  size_t num_channels;  // channel count
+  size_t num_frames;    // frames per channel
+  double sample_rate;   // Hz
+  double duration;      // seconds (= num_frames / sample_rate)
+  std::string format;   // libsndfile format label
 };
 
-// Load an audio file into an AudioBuffer.
-// Supports WAV, FLAC, AIFF, OGG via libsndfile.
 AudioBuffer load(const std::string& path);
-
-// Get file info without loading all sample data.
 AudioFileInfo info(const std::string& path);
-
-// Save an AudioBuffer to an audio file.
-// Format is inferred from the file extension (.wav, .flac, .aiff).
+AudioBuffer decode(std::span<const std::byte> bytes);
+std::vector<std::byte> encode_flac(const AudioBuffer& buffer);
 void save(const AudioBuffer& buffer, const std::string& path);
 
-}  // namespace io
-}  // namespace sferic
+}  // namespace sferic::io

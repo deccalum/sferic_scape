@@ -1,31 +1,56 @@
 #pragma once
 
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 
-namespace sferic {
-namespace log {
+namespace qr {
+class Connection;
+}
+
+namespace sferic::log {
 
 enum class Level { Debug, Info, Warn, Error };
 
-// Open the log file. Auto-names it sferic_YYYYMMDD_HHMMSS.log if path is empty.
-// Safe to call multiple times — only the first call takes effect.
-void init(std::string_view path = "data/logs/");
+constexpr std::string_view to_string(Level l) {
+  switch (l) {
+    case Level::Debug:
+      return "debug";
+    case Level::Info:
+      return "info";
+    case Level::Warn:
+      return "warn";
+    case Level::Error:
+      return "error";
+  }
+  std::unreachable();
+}
 
-// Write one log line to file (always) and stdout (Warn/Error always; Info/Debug when verbose).
+inline Level from_string(std::string_view s, std::type_identity<Level>) {
+  if (s == "debug") return Level::Debug;
+  if (s == "info") return Level::Info;
+  if (s == "warn") return Level::Warn;
+  if (s == "error") return Level::Error;
+  throw std::invalid_argument("unknown log::Level: " + std::string(s));
+}
+
+struct LogConfig {
+  size_t flush_rows = 256;  // buffered rows before a batched INSERT is issued
+  bool echo_stdout = true;  // mirror to stdout/stderr for live feedback
+};
+
+void init(qr::Connection& db, const LogConfig& config);
+void shutdown();  // Flush the buffer and detach. Must be called before `db` is destroyed.
+void set_echo_stdout(bool on);
+bool echo_stdout();
 void write(Level level, std::string_view func, std::string_view msg);
-
-// Same as write(), but appends a formatted memory size to the message.
 void write_mem(Level level, std::string_view func, std::string_view msg, size_t bytes);
-
-// Write a progress line to file every call, to stdout every stdout_interval calls.
-// current / total are counts; audio_ms is the corresponding audio position.
 void progress(std::string_view func, size_t current, size_t total, double audio_ms,
               size_t model_bytes, size_t stdout_interval = 100);
-
-// Format bytes as human-readable: B / KB / MB / GB.
-std::string fmt_bytes(size_t bytes);
+std::string fmt_bytes(size_t bytes);  // Format bytes as human-readable: B / KB / MB / GB
 
 // RAII scope timer — logs entry on construction, exit + elapsed on destruction.
 struct ScopeTimer {
@@ -38,8 +63,7 @@ struct ScopeTimer {
   long long start_us_;
 };
 
-}  // namespace log
-}  // namespace sferic
+}  // namespace sferic::log
 
 #define SFERIC_LOG(lvl, msg) ::sferic::log::write(::sferic::log::Level::lvl, __func__, (msg))
 

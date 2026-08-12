@@ -12,13 +12,9 @@ AudioBuffer::AudioBuffer(size_t num_channels, size_t num_frames, double sample_r
       sample_rate_(sample_rate) {}
 
 double AudioBuffer::duration() const { return static_cast<double>(num_frames_) / sample_rate_; }
-
-Sample* AudioBuffer::channel(size_t ch) { return data_.data() + ch; }
-
-const Sample* AudioBuffer::channel(size_t ch) const { return data_.data() + ch; }
-
+Sample* AudioBuffer::data() { return data_.data(); }
+const Sample* AudioBuffer::data() const { return data_.data(); }
 Sample& AudioBuffer::at(size_t ch, size_t frame) { return data_[frame * num_channels_ + ch]; }
-
 const Sample& AudioBuffer::at(size_t ch, size_t frame) const { return data_[frame * num_channels_ + ch]; }
 
 Sample AudioBuffer::peak_amplitude() const {
@@ -49,11 +45,6 @@ void AudioBuffer::clear() {
 
 AudioBuffer AudioBuffer::to_mono() const {
   if (num_channels_ == 1) return *this;
-
-  // TODO before discarding multi-channel data here, capture a StereoProfile
-  // (ITD, ILD, inter-channel coherence, width) so the spatial character can
-  // be re-applied in a later stereo rendering pass.
-
   AudioBuffer mono(1, num_frames_, sample_rate_);
   for (size_t f = 0; f < num_frames_; ++f) {
     double sum = 0.0;

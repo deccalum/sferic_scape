@@ -1,0 +1,3 @@
+[submodule "qr"]
+	path = qr
+	url = https://github.com/deccalum/query_runner.git

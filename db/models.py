@@ -304,6 +304,7 @@ class Exemplar(Base):
     approved:        Mapped[Optional[bool]]        = mapped_column(Boolean)
     reviewed_at:     Mapped[Optional[datetime]]    = mapped_column(DateTime(timezone=True))
     reject_reason:   Mapped[Optional[str]]         = mapped_column(Text, _REJECT_REASON_FK())
+    carried_from:    Mapped[Optional[str]]         = mapped_column(Text)
     notes:           Mapped[Optional[str]]         = mapped_column(Text)
     features:        Mapped[list["ExemplarFeature"]] = relationship(back_populates="exemplar", cascade="all, delete-orphan")
 
