@@ -1,58 +1,35 @@
-#include "cli/browser.h"
-#include "cli/commands.h"
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <qr/qr.hpp>
+
+#include "cli/args.h"
+#include "cli/browse.h"
+#include "cli/dispatch.h"
 #include "core/logger.h"
+#include "io/audio_sink.h"
 #include "io/env.h"
+#include "io/media_repository.h"
 
-#define DEVELOPMENT 1
-
-#if DEVELOPMENT
-
-int main() {
+int main(int argc, char** argv) {
   sferic::io::env::load();
-  sferic::log::init(sferic::io::env::log_dir().string() + "/");
+  const std::optional<sferic::cli::Invocation> invocation = sferic::cli::parse_args(argc, argv);
+  if (!invocation) return 1;
+  qr::Connection db(sferic::io::env::database_url());
+  qr::Connection log_db(sferic::io::env::database_url());
+  sferic::log::init(log_db, sferic::log::LogConfig{});
+  sferic::io::MediaRepository repo(db);
+  sferic::cli::init_database_browser(db);
+  const sferic::ui::AudioSinkFactory make_sink = [](size_t channels, double sample_rate) {
+    return std::make_unique<sferic::io::RealtimeSink>(channels, sample_rate);
+  };
 
-  sferic::cli::AnalyzeOptions opts;
-  opts.emit_unhealed = true;
-  opts.write_json = sferic::io::env::flag("SFERIC_WRITE_JSON");
-
-  for (const auto& p : sferic::cli::browse(sferic::io::env::wav_root(), opts))
-    sferic::cli::analyze(p, opts);
-
-  return 0;
-}
-
-#else
-static std::atomic<bool> g_running{true};
-
-int main() {
-  load_dotenv();
-  log::init();
-  controllerinterface::init();
-
-  ambience::Soundscape scape;
-  scape.add_module(std::make_unique<thunder::ThunderModule>());
-  scape.add_module(std::make_unique<rain::RainModule>());
-  scape.add_module(std::make_unique<wind::WindModule>());
-  scape.add_module(std::make_unique<ocean::OceanModule>());
-
-  io::RealtimeSink sink;
-  module::ModuleContext ctx = sink.context();
-  AudioBuffer mix(2, ctx.block_size, ctx.sample_rate);
-
-  scape.prepare();
-  std::signal();
-  AudioBuffer mix();
-
-  while (g_running.load()) {
-    controllerinterface::poll(scape);
-    scape.render_block(mix, ctx);
-    limiter::process(mix);
-    sink.write_block(mix);
-    if (sink.xrun()) log_overload();
+  int exit_code = 0;
+  if (invocation->spec) {
+    exit_code = sferic::cli::dispatch(*invocation, repo, make_sink);
+  } else {
+    sferic::cli::run_interactive(repo, make_sink);
   }
-
-  sink.finalize();
-  return 0;
+  sferic::log::shutdown();
+  return exit_code;
 }
-
-#endif
