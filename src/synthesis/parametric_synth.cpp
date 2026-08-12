@@ -41,7 +41,7 @@ AudioBuffer ParametricSynth::synthesize(std::optional<double> duration_s) const 
 
   const size_t num_samples = static_cast<size_t>(dur * model_.sample_rate);
   AudioBuffer out(1, num_samples, model_.sample_rate);
-  gen.render(out.channel(0), num_samples, 0.0);
+  gen.render(out.data(), num_samples, 0.0);
 
   return out;
 }
@@ -285,7 +285,7 @@ analysis::SpectralEnvelope ParametricSynth::reconstruct_envelope(double duration
     accumulated_bytes += num_bins * sizeof(double);
     envelope.ms.push_back(std::move(frame));
 
-    SFERIC_PROGRESS(i, num_frames, t * 1000.0, accumulated_bytes);
+    SFERIC_PROGRESS(i + 1, num_frames, t * 1000.0, accumulated_bytes);
   }
 
   SFERIC_LOG_MEM(Info, "reconstruct_envelope complete", accumulated_bytes);

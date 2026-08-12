@@ -42,12 +42,12 @@ enum class DistributionKind {
 // Result of fit_distribution(): the winning distribution family with its
 // estimated parameters and a KS goodness-of-fit score (higher = better fit).
 struct DistributionFit {
-  DistributionKind kind = DistributionKind::Normal;
-  std::array<double, 4> params{};  // semantics per DistributionKind above
-  std::vector<double> weights;     // non-empty only for Discrete / Piecewise kinds
-  double ks_p_value = 0.0;         // KS goodness-of-fit p-value — higher = better fit
-  double ks_statistic = 1.0;       // KS D — max deviation of fitted CDF from empirical; lower = better
-  size_t sample_count = 0;         // observations used; 0 = fit was skipped
+  DistributionKind kind = DistributionKind::Normal;  // winning family
+  std::array<double, 4> params{};                    // semantics per DistributionKind above
+  std::vector<double> weights;                       // non-empty only for Discrete / Piecewise kinds
+  double ks_p_value = 0.0;                           // KS goodness-of-fit p-value — higher = better fit
+  double ks_statistic = 1.0;  // KS D — max deviation of fitted CDF from empirical; lower = better
+  size_t sample_count = 0;    // observations used; 0 = fit was skipped
 };
 
 // Fits every applicable distribution and returns the winner by KS p-value.

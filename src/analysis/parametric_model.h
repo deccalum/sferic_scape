@@ -61,10 +61,10 @@ struct BandEnvelope {
 // A single tracked spectral peak and how it evolves over its lifetime.
 // Frequency movement is decomposed into a linear drift plus residual jitter.
 struct SpectralPeakTrack {
-    double birth_time_s;                // time when peak first exceeds prominence threshold
-    double death_time_s;                // time when peak drops below threshold
-  double initial_frequency_hz;
-  double initial_amplitude_db;
+  double birth_time_s;                  // time when peak first exceeds prominence threshold
+  double death_time_s;                  // time when peak drops below threshold
+  double initial_frequency_hz;          // frequency at birth
+  double initial_amplitude_db;          // amplitude at birth
   double q_factor;                      // centre frequency / -3 dB bandwidth
   double frequency_drift_hz_per_s;      // linear glide rate; negative = downward (typical thunder)
   DistributionFit frequency_jitter;     // residual frequency variation after drift subtracted
@@ -75,20 +75,20 @@ struct SpectralPeakTrack {
 // Every field is a named, typed, physically-grounded quantity — no raw envelope arrays.
 // Produced by ParametricExtractor; feeds directly into physics-path synthesis or code generation.
 struct ParametricModel {
-  double sample_rate;
-  double duration_s;
+  double sample_rate;         // Hz of the analysed source
+  double duration_s;          // clip length, seconds
   size_t source_frame_count;  // number of frames in the SpectralEnvelope this was derived from
   size_t num_bins;            // FFT bins per frame — sets frequency resolution of synthesis
 
-  TemporalEnvelope overall_envelope;
+  TemporalEnvelope overall_envelope;               // whole-clip amplitude envelope
   std::vector<BandEnvelope> bands;                 // count determined by variance analysis
   SpectralShape mean_spectral_shape;               // time-averaged over all frames
   std::vector<SpectralShape> spectral_trajectory;  // one entry per source frame
-  std::vector<SpectralPeakTrack> peak_tracks;
+  std::vector<SpectralPeakTrack> peak_tracks;      // tracked peaks across frames
 
-  DistributionFit centroid_distribution;
-  DistributionFit spread_distribution;
-  DistributionFit amplitude_distribution;
+  DistributionFit centroid_distribution;   // global centroid_hz samples
+  DistributionFit spread_distribution;     // global spread_hz samples
+  DistributionFit amplitude_distribution;  // global RMS / amplitude samples
 
   bool empty() const { return source_frame_count == 0; }
 };

@@ -128,7 +128,7 @@ size_t NoiseGenerator::render(float* output, size_t num_samples, double start_ti
       for (size_t i = 0; i < fft_size_; ++i)
         overlap_buffer_[i] += grain[i] * static_cast<float>(ola_norm_);
 
-      SFERIC_PROGRESS(grain_idx, total_grains, current_time * 1000.0, 0);
+      SFERIC_PROGRESS(grain_idx + 1, total_grains, current_time * 1000.0, 0);
       ++grain_idx;
     }
 

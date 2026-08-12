@@ -12,8 +12,8 @@ namespace module {
 // Constant per render session; frame_clock advances by block_size each block so
 // a module always knows its absolute position on the global timeline.
 struct ModuleContext {
-  double   sample_rate;
-  size_t   block_size;
+  double sample_rate;     // Hz for this render session
+  size_t block_size;      // frames per render_block call
   uint64_t frame_clock;   // absolute sample index at the start of the current block
 };
 

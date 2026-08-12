@@ -35,7 +35,7 @@ double envelope_similarity(const SpectralEnvelope& a, const SpectralEnvelope& b)
       mag_a += va * va;
       mag_b += vb * vb;
     }
-    SFERIC_PROGRESS(i, na, a.ms[i].time_seconds * 1000.0, 0);
+    SFERIC_PROGRESS(i + 1, na, a.ms[i].time_seconds * 1000.0, 0);
   }
 
   const double denom = std::sqrt(mag_a) * std::sqrt(mag_b);

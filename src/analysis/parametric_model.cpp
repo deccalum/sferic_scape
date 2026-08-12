@@ -59,7 +59,7 @@ ParametricModel ParametricExtractor::extract(const SpectralEnvelope& model) cons
   result.spectral_trajectory.reserve(model.ms.size());
   for (size_t i = 0; i < model.ms.size(); ++i) {
     result.spectral_trajectory.push_back(compute_spectral_shape(model.ms[i]));
-    SFERIC_PROGRESS(i, model.ms.size(), model.ms[i].time_seconds * 1000.0,
+    SFERIC_PROGRESS(i + 1, model.ms.size(), model.ms[i].time_seconds * 1000.0,
                     result.spectral_trajectory.size() * sizeof(SpectralShape));
   }
 
@@ -978,7 +978,7 @@ std::vector<SpectralPeakTrack> ParametricExtractor::track_spectral_peaks(
     }
 
     active = std::move(next_active);
-    SFERIC_PROGRESS(fi, n_frames, t_frame * 1000.0, active.size() * fi * 3 * sizeof(double));
+    SFERIC_PROGRESS(fi + 1, n_frames, t_frame * 1000.0, active.size() * fi * 3 * sizeof(double));
   }
 
   // Finalize tracks still alive at end of signal
